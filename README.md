@@ -12,6 +12,10 @@ Cargo-template makes it easy to add file templates to your project.
     cargo template mit -o a/different/directory/DIFFERENT_FILE.md
     cargo template mit -o - > LICENSE.md
 
+# Installation
+
+    cargo install cargo-template
+
 # Submissions
 
 We welcome pull requests to add new file templates to this tool.
