@@ -1,0 +1,29 @@
+set dotenv-load := true
+export PATH := "./node_modules/.bin:" + env_var('PATH')
+
+help:
+    @just --list --unsorted
+
+bootstrap:
+    npm install
+
+build:
+    tsc
+
+# Increase version
+version level:
+    git diff-index --exit-code HEAD > /dev/null || ! echo $(dye -r ERROR) You have untracked changes. Commit your changes before bumping the version.
+    npm version {{level}}
+    git commit -am "bump {{level}} version"
+    TAG=$(basename $(pwd))-v$(rg  "\"version\": \"([0-9.]+)\"" -or '$1' package.json | head -n1) && \
+        git tag $TAG && \
+        git push origin $TAG
+    git push
+
+publish:
+    npm publish
+    git clean -f
+
+patch:
+    just version patch
+    just publish
