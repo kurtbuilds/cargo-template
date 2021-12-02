@@ -18,6 +18,14 @@ struct FileTemplate<'a> {
     text: &'a str,
 }
 
+macro_rules! file_template {
+    ($base_fpath:expr) => {
+        FileTemplate {
+            base_fpath: Path::new($base_fpath).file_name().unwrap().as_ref(),
+            text: include_str!($base_fpath),
+        }
+    };
+}
 
 macro_rules! exit_with {
     () => ($crate::eprint!("\n"));
@@ -82,6 +90,7 @@ fn main() {
         .subcommand(App::new("mit"))
         .subcommand(App::new("just"))
         .subcommand(App::new("just.lib.ts"))
+        .subcommand(App::new("readme"))
         .arg(Arg::new("output")
             .short('o')
             .takes_value(true)
@@ -125,6 +134,16 @@ fn main() {
                 base_fpath: Path::new("Justfile"),
                 text: include_str!("../template/just.lib.ts/Justfile"),
             };
+            let output = args.value_of("output")
+                .map(|s| Path::new(s))
+                .unwrap_or(template.base_fpath);
+            write_single(&template, output, &options)
+        }
+        ("readme", _) => {
+            let template = file_template!("../template/readme/README.md");
+            //     base_fpath: Path::new("README.md"),
+            //     text: include_str!(),
+            // };
             let output = args.value_of("output")
                 .map(|s| Path::new(s))
                 .unwrap_or(template.base_fpath);
