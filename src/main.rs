@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use rustyline::Editor;
 use anyhow::Result;
 use ini::Ini;
+use log::info;
 use toml::Value;
 
 
@@ -158,6 +159,7 @@ fn fill_empty_keys<'a>(
         let context = read_context_file(&var_names, path);
         context.into_iter().for_each(|(k, v)| {
             if !provided.contains_key(k) {
+                info!("{}: Resolved using {} to {}", k, path, &v);
                 provided.insert(k, v);
             }
         });
