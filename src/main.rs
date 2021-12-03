@@ -185,6 +185,7 @@ fn resolve_template_variables<'a>(
 
 
 fn main() {
+    env_logger::init();
     let mut os_args = env::args_os().into_iter();
     // means we're running as cargo subcommand
     if env::var("CARGO").is_ok() {
