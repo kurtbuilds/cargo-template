@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::Read;
 use toml::value::Value;
 use tera::Context;
-use crate::error::{err, Error};
+use crate::error::{Error};
 
 
 /// insanely hackey, but its self contained, so its easy to extend when we need more data.
