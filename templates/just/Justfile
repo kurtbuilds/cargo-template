@@ -8,7 +8,7 @@ build:
 alias b := build
 
 run *args:
-    cargo run {{args}}
+    cargo run {{ "{{ args }}" }}
 alias r := run
 
 release:
@@ -21,7 +21,7 @@ bootstrap:
     cargo install cargo-edit
 
 test *args:
-    cargo test {{args}}
+    cargo test {{ "{{ args }}" }}
 
 check:
     cargo check
