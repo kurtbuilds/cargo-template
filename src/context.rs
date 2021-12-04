@@ -90,9 +90,14 @@ pub fn resolve_template_variables<'a>(
     let mut editor = Editor::<()>::new();
     for name in var_names {
         if !provided.contains_key(name) {
-            let readline = editor.readline(&format!("Provide value for {}: ", name))?;
+            let readline = editor.readline(&format!("Provide value for {}: ", name))
+                .map_err(|_| err!("Failed to get user input"))?;
             provided.insert(name, readline);
         }
     }
-    Ok(provided)
+    let mut c = Context::new();
+    for (k, v) in provided {
+        c.insert(k, &v);
+    }
+    Ok(c)
 }

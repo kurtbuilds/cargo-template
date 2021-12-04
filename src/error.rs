@@ -16,11 +16,3 @@ impl std::fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
-
-macro_rules! err {
-    ($($arg:tt)*) => {
-        Error {
-            message: format!($($arg)*),
-        }
-    }
-}

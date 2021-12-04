@@ -160,6 +160,7 @@ dependencies = [
  "askama",
  "clap",
  "env_logger",
+ "include_dir",
  "log",
  "rust-ini",
  "rustyline",
@@ -475,6 +476,25 @@ dependencies = [
  "thread_local",
  "walkdir",
  "winapi-util",
+]
+
+[[package]]
+name = "include_dir"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fe7734d776eb702d33f1b68730696db57c87facfd526d2044a308a0c8466318"
+dependencies = [
+ "include_dir_macros",
+]
+
+[[package]]
+name = "include_dir_macros"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "253ba5156abc78673208f900dd686e1e000e6edc5633231d309acded2b66026d"
+dependencies = [
+ "proc-macro2",
+ "quote",
 ]
 
 [[package]]

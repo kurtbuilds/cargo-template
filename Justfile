@@ -3,18 +3,9 @@ set dotenv-load := false
 help:
     @just --list --unsorted
 
-bootstrap:
-    cargo install cargo-edit
-
-check:
-    cargo check
-
 build:
     cargo build
 alias b := build
-
-test *args:
-    cargo test {{args}}
 
 run *args:
     cargo run {{args}}
@@ -23,11 +14,21 @@ alias r := run
 release:
     cargo build --release
 
-fix:
-    cargo clippy --fix
-
 install:
     cargo install --path .
+
+bootstrap:
+    cargo install cargo-edit
+
+test *args:
+    cargo test {{args}}
+
+check:
+    cargo check
+alias c := check
+
+fix:
+    cargo clippy --fix
 
 # Bump version. level=major,minor,patch
 version level:
