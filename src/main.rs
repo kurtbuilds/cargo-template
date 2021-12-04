@@ -31,7 +31,6 @@ struct CompletedFile {
 
 
 fn write_templates(tera: &mut Tera, template_group: &str, context: Context, output_path: &str, options: &WritingOptions) -> Result<()> {
-
     let template_names = {
         tera.get_template_names().filter(|name| name.starts_with(template_group)).map(|s| s.to_string()).collect::<Vec<_>>()
     };
@@ -45,9 +44,10 @@ fn write_templates(tera: &mut Tera, template_group: &str, context: Context, outp
 
     let mut final_files = Vec::new();
     for name in template_names {
+        let relative_path = Path::new(&name).components().skip(1).collect::<PathBuf>();
         final_files.push(CompletedFile {
-            final_path: if to_dir { output_path.join(&name).to_owned() } else { output_path.to_owned() },
-            rendered: tera.render_str(&name, &context)?
+            final_path: if to_dir { output_path.join(relative_path).to_owned() } else { output_path.to_owned() },
+            rendered: tera.render(&name, &context)?
         });
     }
 
@@ -107,26 +107,19 @@ fn register_templates_recurse(dir: &Dir) -> Vec<(String, String)> {
 }
 
 
-fn register_templates() -> Tera{
+fn register_templates() -> Result<Tera> {
     let mut tera = Tera::default();
-    tera.add_raw_templates(register_templates_recurse(&TEMPLATE_DIR).into_iter());
-    tera
+    tera.add_raw_templates(register_templates_recurse(&TEMPLATE_DIR).into_iter())?;
+    Ok(tera)
 }
 
 
 fn main() -> Result<()> {
-    env::vars().for_each(|(k, v)| {
-        eprintln!("{}: {}", k, v);
-    });
-    env::args().for_each(|s| {
-        eprintln!("cli args {}", s);
-    });
-
     let mut os_args = env::args_os();
     // means we're running as cargo subcommand
-    if let Ok(executed_cmd) = env::var("_") {
-        if let Some(bin) = env::args().next() {
-            if executed_cmd.starts_with(&bin) {
+    if let Ok(last_run_executable) = env::var("_") {
+        if let Some(user_provided_bin) = env::args().next() {
+            if user_provided_bin.starts_with(&last_run_executable) {
                 os_args.next();
             }
 
@@ -156,48 +149,44 @@ fn main() -> Result<()> {
         )
         .get_matches_from(os_args);
 
-    println!("{:?}", args);
-    register_templates();
-
     let options = WritingOptions {
         force: args.is_present("force"),
     };
 
     let output_path = args.value_of("output").unwrap_or("./");
-    let mut context = Context::new();
     let template_group = args.subcommand().unwrap().0;
-    let mut tera = register_templates();
+    let mut tera = register_templates()?;
 
-    match args.subcommand().unwrap() {
+    let context = match args.subcommand().unwrap() {
         ("mit", _) => {
-            context = resolve_template_variables(vec![])?;
+            resolve_template_variables(vec![])?
         }
         ("just", _) => {
-            context = resolve_template_variables(vec![])?;
+            resolve_template_variables(vec![])?
         }
         ("just.lib.ts", _) => {
-            context = resolve_template_variables(vec![])?;
+            resolve_template_variables(vec![])?
         }
         ("readme", _) => {
-            context = resolve_template_variables(vec![
+            resolve_template_variables(vec![
                 "github_repo",
                 "name",
-            ])?;
+            ])?
         }
         ("github-actions", _) => {
-            context = resolve_template_variables(vec![])?;
+            resolve_template_variables(vec![])?
         }
         ("clap", _) => {
-            context = resolve_template_variables(vec![
+            resolve_template_variables(vec![
                 "github_repo",
                 "name",
-            ])?;
+            ])?
         }
         _ => {
             eprintln!("Template not recognized. Use --help for help.");
             std::process::exit(1)
         },
-    }
+    };
 
     write_templates(&mut tera, template_group, context, output_path, &options)
 }

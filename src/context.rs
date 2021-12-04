@@ -9,12 +9,13 @@ use std::io::Read;
 use toml::value::Value;
 use tera::Context;
 use crate::error::{Error};
+use anyhow::Result;
 
 
 /// insanely hackey, but its self contained, so its easy to extend when we need more data.
-pub fn read_git_config(mut file: File) -> HashMap<String, String> {
+pub fn read_git_config(mut file: File) -> Result<HashMap<String, String>> {
     let mut s: String = String::new();
-    file.read_to_string(&mut s);
+    file.read_to_string(&mut s)?;
     let conf = Ini::load_from_str(&s).unwrap();
     let mut s = HashMap::new();
     if let Some(section) = conf.section(Some("remote \"origin\"".to_string())) {
@@ -27,31 +28,31 @@ pub fn read_git_config(mut file: File) -> HashMap<String, String> {
             }
         }
     }
-    s
+    Ok(s)
 }
 
 
 /// insanely hackey, but its self contained, so its easy to extend when we need more data.
-pub fn read_cargo_toml(mut file: File) -> HashMap<String, String> {
+pub fn read_cargo_toml(mut file: File) -> Result<HashMap<String, String>> {
     let mut s: String = String::new();
-    file.read_to_string(&mut s);
+    file.read_to_string(&mut s)?;
     let value = s.parse::<Value>().unwrap();
     let mut s = HashMap::new();
     s.insert("name".to_string(), value["package"]["name"].as_str().unwrap().to_string());
-    s
+    Ok(s)
 }
 
 
 pub fn read_context_file<'a>(
     var_names: &Vec<&'a str>,
     path: &str,
-) -> HashMap<&'a str, String> {
-    match File::open(path) {
+) -> Result<HashMap<&'a str, String>> {
+    Ok(match File::open(path) {
         Ok(file) => {
             let map: HashMap<String, String> = if path.ends_with(".git/config") {
-                read_git_config(file)
+                read_git_config(file)?
             } else if path.ends_with("Cargo.toml") {
-                read_cargo_toml(file)
+                read_cargo_toml(file)?
             } else {
                 serde_json::from_reader(file).unwrap()
             };
@@ -60,7 +61,7 @@ pub fn read_context_file<'a>(
                 .collect()
         }
         Err(_) => HashMap::new(),
-    }
+    })
 }
 
 
@@ -70,13 +71,17 @@ fn fill_empty_keys<'a>(
     provided: &mut HashMap<&'a str, String>,
 ) {
     for path in lookup_paths {
-        let context = read_context_file(var_names, path);
-        context.into_iter().for_each(|(k, v)| {
-            if !provided.contains_key(k) {
-                eprintln!("{}: Resolved using {} to {}", k, path, &v);
-                provided.insert(k, v);
+        match read_context_file(var_names, path) {
+            Err(_) => continue,
+            Ok(context) => {
+                context.into_iter().for_each(|(k, v)| {
+                    if !provided.contains_key(k) {
+                        eprintln!("{0}: {2} (value from {1})", k, path, &v);
+                        provided.insert(k, v);
+                    }
+                });
             }
-        });
+        }
     }
 }
 
