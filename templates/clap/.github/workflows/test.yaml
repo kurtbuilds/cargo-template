@@ -1,0 +1,1 @@
+{% extends "github-actions/.github/workflows/test.yaml" %}

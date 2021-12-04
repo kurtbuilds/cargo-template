@@ -1,0 +1,21 @@
+[package]
+name = "{{ name }}"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kurt Wolf <kurtwolfbuilds@gmail.com>"]
+description = "Conditionally run a command in a CLI (like Make, as a standalone tool)"
+license = "MIT"
+repository = "{{ repo }}"
+
+# categories are https://crates.io/category_slugs
+categories = [
+]
+
+# Can be anything you want
+keywords = [
+]
+
+[dependencies]
+clap = { version = "3.0.0-beta.4", features = ["color", "env", "suggestions"]}
+
+[dev-dependencies]
