@@ -29,11 +29,11 @@ struct CompletedFile {
 }
 
 
-
 fn write_templates(tera: &mut Tera, template_group: &str, context: Context, output_path: &str, options: &WritingOptions) -> Result<()> {
     let template_names = {
-        tera.get_template_names().filter(|name| name.starts_with(template_group)).map(|s| s.to_string()).collect::<Vec<_>>()
+        tera.get_template_names().filter(|name| name.starts_with(&(template_group.to_string() + "/"))).map(|s| s.to_string()).collect::<Vec<_>>()
     };
+    eprintln!("Found {} templates in group {}: {}", template_names.len(), template_group, template_names.join(", "));
 
     let to_dir = output_path.ends_with(&MAIN_SEPARATOR.to_string());
     let to_stdout = output_path == "-";
@@ -47,7 +47,7 @@ fn write_templates(tera: &mut Tera, template_group: &str, context: Context, outp
         let relative_path = Path::new(&name).components().skip(1).collect::<PathBuf>();
         final_files.push(CompletedFile {
             final_path: if to_dir { output_path.join(relative_path).to_owned() } else { output_path.to_owned() },
-            rendered: tera.render(&name, &context)?
+            rendered: tera.render(&name, &context)?,
         });
     }
 
@@ -77,13 +77,13 @@ fn write_templates(tera: &mut Tera, template_group: &str, context: Context, outp
 }
 
 
-fn resolve_template_variables(vec: Vec<&str>) -> Result<Context, error::Error> {
+fn resolve_template_variables(vec: Vec<&str>, verbose: bool) -> Result<Context, error::Error> {
     let template_var_paths = vec![
         ".template.json",
         "Cargo.toml",
         ".git/config",
     ];
-    context::resolve_template_variables(&vec, &template_var_paths, HashMap::new())
+    context::resolve_template_variables(&vec, &template_var_paths, HashMap::new(), verbose)
 }
 
 
@@ -94,7 +94,6 @@ fn register_templates_recurse(dir: &Dir) -> Vec<(String, String)> {
             DirEntry::Dir(d) => {
                 let mut subdir_templates = register_templates_recurse(d);
                 templates.append(&mut subdir_templates);
-
             }
             DirEntry::File(f) => {
                 templates.push((
@@ -107,9 +106,15 @@ fn register_templates_recurse(dir: &Dir) -> Vec<(String, String)> {
 }
 
 
-fn register_templates() -> Result<Tera> {
+fn register_templates(verbose: bool) -> Result<Tera> {
     let mut tera = Tera::default();
-    tera.add_raw_templates(register_templates_recurse(&TEMPLATE_DIR).into_iter())?;
+    tera.add_raw_templates(register_templates_recurse(&TEMPLATE_DIR).into_iter()
+        .map(|(name, body)| {
+            if verbose {
+                eprintln!("{}: Found template", &name)
+            }
+            (name, body)
+        }))?;
     Ok(tera)
 }
 
@@ -122,7 +127,6 @@ fn main() -> Result<()> {
             if user_provided_bin.starts_with(&last_run_executable) {
                 os_args.next();
             }
-
         }
     }
     let args = App::new(BIN_NAME)
@@ -147,15 +151,21 @@ fn main() -> Result<()> {
             .global(true)
             .about("Overwrite existing files.")
         )
+        .arg(Arg::new("verbose")
+            .long("verbose")
+            .short('v')
+            .global(true)
+        )
         .get_matches_from(os_args);
 
+    let verbose = args.is_present("verbose");
     let options = WritingOptions {
         force: args.is_present("force"),
     };
 
     let output_path = args.value_of("output").unwrap_or("./");
     let template_group = args.subcommand().unwrap().0;
-    let mut tera = register_templates()?;
+    let mut tera = register_templates(verbose)?;
 
     let context = match args.subcommand().unwrap() {
         ("mit", _) => {
@@ -185,7 +195,7 @@ fn main() -> Result<()> {
         _ => {
             eprintln!("Template not recognized. Use --help for help.");
             std::process::exit(1)
-        },
+        }
     };
 
     write_templates(&mut tera, template_group, context, output_path, &options)

@@ -69,6 +69,7 @@ fn fill_empty_keys<'a>(
     var_names: &Vec<&'a str>,
     lookup_paths: &Vec<&'a str>,
     provided: &mut HashMap<&'a str, String>,
+    verbose: bool,
 ) {
     for path in lookup_paths {
         match read_context_file(var_names, path) {
@@ -76,7 +77,9 @@ fn fill_empty_keys<'a>(
             Ok(context) => {
                 context.into_iter().for_each(|(k, v)| {
                     if !provided.contains_key(k) {
-                        eprintln!("{0}: {2} (value from {1})", k, path, &v);
+                        if verbose {
+                            eprintln!("{0}: {2} (value from {1})", k, path, &v);
+                        }
                         provided.insert(k, v);
                     }
                 });
@@ -90,8 +93,9 @@ pub fn resolve_template_variables<'a>(
     var_names: &Vec<&'a str>,
     lookup_paths: &Vec<&'a str>,
     mut provided: HashMap<&'a str, String>,
+    verbose: bool,
 ) -> Result<Context, Error> {
-    fill_empty_keys(var_names, lookup_paths, &mut provided);
+    fill_empty_keys(var_names, lookup_paths, &mut provided, verbose);
     let mut editor = Editor::<()>::new();
     for name in var_names {
         if !provided.contains_key(name) {
