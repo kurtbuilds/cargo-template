@@ -167,30 +167,30 @@ fn main() -> Result<()> {
     let template_group = args.subcommand().unwrap().0;
     let mut tera = register_templates(verbose)?;
 
-    let context = match args.subcommand().unwrap() {
+    let required_vars = match args.subcommand().unwrap() {
         ("mit", _) => {
-            resolve_template_variables(vec![])?
+            vec![]
         }
         ("just", _) => {
-            resolve_template_variables(vec![])?
+            vec![]
         }
         ("just.lib.ts", _) => {
-            resolve_template_variables(vec![])?
+            vec![]
         }
         ("readme", _) => {
-            resolve_template_variables(vec![
+            vec![
                 "github_repo",
                 "name",
-            ])?
+            ]
         }
         ("github-actions", _) => {
-            resolve_template_variables(vec![])?
+            vec![]
         }
         ("clap", _) => {
-            resolve_template_variables(vec![
+            vec![
                 "github_repo",
                 "name",
-            ])?
+            ]
         }
         _ => {
             eprintln!("Template not recognized. Use --help for help.");
@@ -198,5 +198,6 @@ fn main() -> Result<()> {
         }
     };
 
+    let context = resolve_template_variables(required_vars, verbose)?;
     write_templates(&mut tera, template_group, context, output_path, &options)
 }

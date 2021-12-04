@@ -4,17 +4,21 @@ help:
     @just --list --unsorted
 
 build:
+    checkexec target/debug/cargo-template $(fd '.*' templates) -- cargo clean -p cargo-template
     cargo build
 alias b := build
 
 run *args:
+    checkexec target/debug/cargo-template $(fd '.*' templates) -- cargo clean -p cargo-template
     cargo run {{args}}
 alias r := run
 
 release:
+    checkexec target/release/cargo-template $(fd '.*' templates) -- cargo clean --release -p cargo-template
     cargo build --release
 
 install:
+    checkexec ~/.cargo/bin/cargo-template $(fd '.*' templates) -- cargo clean --release -p cargo-template
     cargo install --path .
 
 bootstrap:
@@ -36,7 +40,7 @@ version level:
     cargo set-version --bump {{level}}
     cargo update # This bumps Cargo.lock
     VERSION=$(rg  "version = \"([0-9.]+)\"" -or '$1' Cargo.toml | head -n1) && \
-        git commit -am "Bump version to $VERSION" && \
+        git commit -am "Bump {{level}} version to $VERSION" && \
         git tag v$VERSION && \
         git push origin v$VERSION
     git push
