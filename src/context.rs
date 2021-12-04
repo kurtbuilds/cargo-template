@@ -21,7 +21,7 @@ pub fn read_git_config(mut file: File) -> HashMap<String, String> {
         if let Some(url) = section.get("url") {
             s.insert("repo".to_string(), url.to_string());
             if url.contains("github.com") {
-                s.insert("github_repo".to_string(), url.split("github.com/").skip(1).next().unwrap()
+                s.insert("github_repo".to_string(), url.split("github.com/").nth(1).unwrap()
                     .split(".git").next().unwrap()
                     .to_string());
             }
@@ -70,7 +70,7 @@ fn fill_empty_keys<'a>(
     provided: &mut HashMap<&'a str, String>,
 ) {
     for path in lookup_paths {
-        let context = read_context_file(&var_names, path);
+        let context = read_context_file(var_names, path);
         context.into_iter().for_each(|(k, v)| {
             if !provided.contains_key(k) {
                 eprintln!("{}: Resolved using {} to {}", k, path, &v);

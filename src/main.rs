@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::io::{Write};
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 use clap::{App, AppSettings, Arg};
-use rustyline::Editor;
+
 use tera::{Context, Tera};
 use include_dir::{include_dir, Dir, DirEntry};
 use anyhow::Result;
@@ -92,7 +92,7 @@ fn register_templates_recurse(dir: &Dir) -> Vec<(String, String)> {
     for entry in dir.entries() {
         match entry {
             DirEntry::Dir(d) => {
-                let mut subdir_templates = register_templates_recurse(&d);
+                let mut subdir_templates = register_templates_recurse(d);
                 templates.append(&mut subdir_templates);
 
             }
@@ -122,9 +122,9 @@ fn main() -> Result<()> {
         eprintln!("cli args {}", s);
     });
 
-    let mut os_args = env::args_os().into_iter();
+    let mut os_args = env::args_os();
     // means we're running as cargo subcommand
-    if let Some(executed_cmd)  = env::var("_").ok() {
+    if let Ok(executed_cmd) = env::var("_") {
         if let Some(bin) = env::args().next() {
             if executed_cmd.starts_with(&bin) {
                 os_args.next();
