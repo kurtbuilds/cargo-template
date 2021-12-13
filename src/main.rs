@@ -4,7 +4,7 @@ pub mod context;
 
 use std::{env, fs};
 use std::collections::HashMap;
-use std::io::{Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 use clap::{App, AppSettings, Arg};
 
@@ -20,6 +20,7 @@ static TEMPLATE_DIR: Dir<'_> = include_dir!("templates");
 
 pub struct WritingOptions {
     pub force: bool,
+    pub verbose: bool,
 }
 
 
@@ -31,9 +32,16 @@ struct CompletedFile {
 
 fn write_templates(tera: &mut Tera, template_group: &str, context: Context, output_path: &str, options: &WritingOptions) -> Result<()> {
     let template_names = {
-        tera.get_template_names().filter(|name| name.starts_with(&(template_group.to_string() + "/"))).map(|s| s.to_string()).collect::<Vec<_>>()
+        tera.get_template_names()
+            .filter(|name| name.starts_with(&(template_group.to_string() + "/")))
+            .map(|s| s.to_string()).collect::<Vec<_>>()
     };
-    eprintln!("Found {} templates in group {}: {}", template_names.len(), template_group, template_names.join(", "));
+
+    eprintln!("Found {} templates in group {}:\n{}", template_names.len(), template_group, template_names.iter()
+        .map(|s| &s[template_group.len() + 1..])
+        .collect::<Vec<_>>()
+        .join("\n")
+    );
 
     let to_dir = output_path.ends_with(&MAIN_SEPARATOR.to_string());
     let to_stdout = output_path == "-";
@@ -44,11 +52,20 @@ fn write_templates(tera: &mut Tera, template_group: &str, context: Context, outp
 
     let mut final_files = Vec::new();
     for name in template_names {
-        let relative_path = Path::new(&name).components().skip(1).collect::<PathBuf>();
+        let raw_path = if to_dir {
+            let relative_path = Path::new(&name).components().skip(1).collect::<PathBuf>();
+            output_path.join(relative_path)
+        } else {
+            output_path.to_owned()
+        };
+
         final_files.push(CompletedFile {
-            final_path: if to_dir { output_path.join(relative_path).to_owned() } else { output_path.to_owned() },
+            final_path: PathBuf::from(tera.render_str(raw_path.to_str().unwrap(), &context)?),
             rendered: tera.render(&name, &context)?,
         });
+        if options.verbose {
+            eprintln!("Rendering template {} to {}", name, raw_path.display());
+        }
     }
 
     if to_stdout {
@@ -115,7 +132,34 @@ fn register_templates(verbose: bool) -> Result<Tera> {
             }
             (name, body)
         }))?;
+    if verbose {
+        eprintln!("");
+    }
     Ok(tera)
+}
+
+
+fn find_first_root() -> Option<PathBuf> {
+    for fpath in vec![
+        "mod.rs",
+        "src/main.rs",
+        "src/lib.rs",
+    ] {
+        if fs::metadata(fpath).is_ok() {
+            return Some(PathBuf::from(fpath));
+        }
+    }
+    return None;
+}
+
+
+fn add_mod_to_file(mut s: String, name: &str, public: bool) -> String {
+    s.insert_str(0, &format!(
+        "{}mod {};\n",
+        if public { "pub " } else { "" },
+        name,
+    ));
+    s
 }
 
 
@@ -139,17 +183,28 @@ fn main() -> Result<()> {
         .subcommand(App::new("just.lib.ts"))
         .subcommand(App::new("readme"))
         .subcommand(App::new("github-actions"))
+        .subcommand(App::new("mod")
+            .arg(Arg::new("pub")
+                .long("pub")
+                .short('p')
+                .required(false))
+            .arg(Arg::new("dir")
+                .long("dir")
+                .short('d')
+                .takes_value(false)
+                .required(false))
+        )
         .arg(Arg::new("output")
             .short('o')
             .takes_value(true)
             .global(true)
-            .about("Provide a file path, a directory with a trailing slash, or - for stdout.")
+            .help("Provide a file path, a directory with a trailing slash, or - for stdout.")
         )
         .arg(Arg::new("force")
             .long("force")
             .short('f')
             .global(true)
-            .about("Overwrite existing files.")
+            .help("Overwrite existing files.")
         )
         .arg(Arg::new("verbose")
             .long("verbose")
@@ -161,12 +216,50 @@ fn main() -> Result<()> {
     let verbose = args.is_present("verbose");
     let options = WritingOptions {
         force: args.is_present("force"),
+        verbose: args.is_present("verbose"),
     };
 
     let output_path = args.value_of("output").unwrap_or("./");
     let template_group = args.subcommand().unwrap().0;
     let mut tera = register_templates(verbose)?;
 
+    // some templates have special casing right now.
+    match args.subcommand().unwrap() {
+        ("mod", matches) => {
+            let context = resolve_template_variables(vec!["mod_name"], verbose)?;
+            let first_root = find_first_root().ok_or(anyhow::anyhow!("Could not find a mod root at the current path"))?;
+            let mut f = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .append(false)
+                .open(&first_root)
+                .unwrap();
+            let mut s = String::new();
+            f.read_to_string(&mut s).unwrap();
+
+            let mod_name = context.get("mod_name").unwrap().as_str().unwrap().to_owned();
+            // add pub mod <name>; statement to the parent.
+            let s = add_mod_to_file(s, &mod_name, matches.is_present("pub"));
+            f.seek(SeekFrom::Start(0))?;
+            f.write_all(s.as_bytes())?;
+            drop(f);
+
+            // create the <name>.rs or the <name>/mod.rs file.
+            let mut output_path = PathBuf::from(output_path);
+            if vec!["src/main.rs", "src/lib.rs"].contains(&first_root.to_str().unwrap()) {
+                output_path.push("src/");
+            }
+            if matches.is_present("dir") {
+                output_path.push(mod_name);
+                output_path.push("mod.rs");
+            }
+            write_templates(&mut tera, template_group, context, output_path.to_str().unwrap(), &options)?;
+            return Ok(());
+        }
+        _ => {}
+    }
+
+    // generic handler
     let required_vars = match args.subcommand().unwrap() {
         ("mit", _) => {
             vec![]

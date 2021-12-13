@@ -4,21 +4,21 @@ help:
     @just --list --unsorted
 
 build:
-    checkexec target/debug/cargo-template $(fd '.*' templates) -- cargo clean -p cargo-template
+    checkexec target/debug/cargo-template "$(fd -H . templates)" -- cargo clean -p cargo-template
     cargo build
 alias b := build
 
 run *args:
-    checkexec target/debug/cargo-template $(fd '.*' templates) -- cargo clean -p cargo-template
+    checkexec target/debug/cargo-template "$(fd -H . templates)" -- cargo clean -p cargo-template
     cargo run {{args}}
 alias r := run
 
 release:
-    checkexec target/release/cargo-template $(fd '.*' templates) -- cargo clean --release -p cargo-template
+    checkexec target/release/cargo-template "$(fd -H . templates)" -- cargo clean --release -p cargo-template
     cargo build --release
 
 install:
-    checkexec ~/.cargo/bin/cargo-template $(fd '.*' templates) -- cargo clean --release -p cargo-template
+    checkexec ~/.cargo/bin/cargo-template "$(fd -H . templates)" -- cargo clean --release -p cargo-template
     cargo install --path .
 
 bootstrap:
