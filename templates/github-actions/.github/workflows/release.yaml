@@ -58,7 +58,7 @@ jobs:
     - uses: Swatinem/rust-cache@v1
 
     - name: Install AArch64 Toolchain
-      if: ${{ matrix.target == 'aarch64-unknown-linux-musl' }}
+      if: {{ "${{ matrix.target == 'aarch64-unknown-linux-musl' }}" }}
       run:
         - sudo apt-get update
         - sudo apt-get install gcc-aarch64-linux-gnu
