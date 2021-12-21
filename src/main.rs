@@ -4,7 +4,9 @@ pub mod context;
 
 use std::{env, fs};
 use std::collections::HashMap;
+use std::fs::Permissions;
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 use clap::{App, AppSettings, Arg};
 
@@ -27,6 +29,7 @@ pub struct WritingOptions {
 struct CompletedFile {
     final_path: PathBuf,
     rendered: String,
+    permissions: u32,
 }
 
 
@@ -62,6 +65,7 @@ fn write_templates(tera: &mut Tera, template_group: &str, context: Context, outp
         final_files.push(CompletedFile {
             final_path: PathBuf::from(tera.render_str(raw_path.to_str().unwrap(), &context)?),
             rendered: tera.render(&name, &context)?,
+            permissions: if name == "github-actions/.github/package" { 0x755 } else { 0o644 },
         });
         if options.verbose {
             eprintln!("Rendering template {} to {}", name, raw_path.display());
@@ -84,10 +88,11 @@ fn write_templates(tera: &mut Tera, template_group: &str, context: Context, outp
 
     for file in &final_files {
         fs::create_dir_all(file.final_path.parent().unwrap()).unwrap();
-        fs::File::create(&file.final_path)
-            .map_err(|_| err!("{}: Failed to create file.", file.final_path.display()))?
-            .write_all(file.rendered.as_bytes())
+        let mut f = fs::File::create(&file.final_path)
+            .map_err(|_| err!("{}: Failed to create file.", file.final_path.display()))?;
+        f.write_all(file.rendered.as_bytes())
             .map_err(|_| err!("{}: Failed to write to file.", file.final_path.display()))?;
+        f.set_permissions(Permissions::from_mode(file.permissions))?;
         eprintln!("{}: Wrote file.", file.final_path.display());
     }
     Ok(())
